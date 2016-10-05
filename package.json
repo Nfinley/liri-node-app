@@ -1,0 +1,33 @@
+{
+  "name": "liri-node-app",
+  "version": "1.0.0",
+  "description": "An app that takes in a few user inputs and returns information from a few sources",
+  "main": "keys.js",
+  "dependencies": {
+    "inquirer": "^1.2.1",
+    "request": "^2.75.0",
+    "spotify": "^0.3.0",
+    "twitter": "^1.4.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nfinley/liri-node-app.git"
+  },
+  "keywords": [
+    "node",
+    "twitter",
+    "spotify",
+    "request",
+    "inquirer"
+  ],
+  "author": "Nigel Finley",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nfinley/liri-node-app/issues"
+  },
+  "homepage": "https://github.com/Nfinley/liri-node-app#readme"
+}
