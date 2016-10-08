@@ -1,26 +1,23 @@
 // Liri node comand app that pulls in data from twitter, spotify and omdb movie database. Author: Nigel Finley. UT BOOTCAMP.
 
-// ASK: About the rotten tomatoes scores
 
-// Pulls the key information from keys.js
+// ============= Declaring variables=================
+// var action = process.argv[2];
+// var userInput = process.argv[3];
 var keys = require('./keys.js');
-
 var myTwitterKeys = keys.twitterKeys;
-
-// console.log(myTwitterKeys);
-// console.log("--------------------------");
-// console.log(keys.twitterKeys);
-// console.log("--------------------------");
-// console.log(keys.twitterKeys.consumer_key);
-
-var action = process.argv[2];
-var userInput = process.argv[3];
 var request = require('request');
 var spotify = require('spotify');
 var Twitter = require('twitter');
 var inquirer = require('inquirer');
+var fs = require('fs');
 var spotifyData;
-var tweets; 
+var tweets;
+var userInput;
+var dataArray = [];
+var userData;
+var input;
+var split;
 
 var client = new Twitter({
     consumer_key: myTwitterKeys.consumer_key,
@@ -29,117 +26,319 @@ var client = new Twitter({
     access_token_secret: myTwitterKeys.access_token_secret
 });
 
-// console.log("Twitter Test: " , client.options.consumer_key);
-// console.log("Twitter Test: " , client);
 
-// swtich statement to handle the user action and input
-switch (action) {
-    // This will show your last 20 tweets and when they were created at in your terminal/bash window.
-    case "my-tweets":
-        getTweets();
-        break;
+// ======= Begining Inquirer ===========
+inquirer.prompt([{
+    name: "welcome",
+    type: "list",
+    message: "Welcome to LIRI, the Language Interpretation and Recognition Interface. \nPlease choose from the following: ",
+    choices: ["Find Tweets", "Find a Song", "Find a Movie"]
 
-        // For Spotify this will show Artist, song name, preview of link from spotify, and the album in the terminal/bash window
-    case "spotify-this-song":
-        getSong(userInput);
-        break;
+}]).then(function(answers) {
 
-        // This will output  information about the user inputted movie in the terminal/bash window:
-    case "movie-this":
-        getMovie(userInput);
-        break;
+    // Handles the input if user selects Tweets
+    if (answers.welcome === "Find Tweets") {
 
-    case "do-what-it-says":
-        break;
-    default:
+        inquirer.prompt([{
+            name: "chooseUser",
+            type: "input",
+            message: "Type user twitter handle to read their tweets: "
+
+        }]).then(function(answer) {
+            input = answers.welcome;
+            logUserInput(input);
+            userInput = answer.chooseUser;
+            // console.log(userInput);
+            if (userInput !== "") {
+                getTweets(userInput, getTweetsCallback);
+
+	 		// Else statment is the user doesn't select anything and hits enter 
+            } else {
+                fs.readFile("random.txt", "utf8", function(err, data) {
+                    split = data.split(',');
+                    userInput = split[3];
+                    // console.log(split[3]);
+
+
+                    if (split[2] === "Find Tweets") {
+                        getTweets(userInput, getTweetsCallback);
+                    } else {
+                        console.log("You Broke It!");
+                    }
+                });
+            }
+
+        });
+    }
+
+    // Handles the input if user selects a Song
+    else if (answers.welcome === "Find a Song") {
+
+
+        inquirer.prompt([{
+            name: "chooseSong",
+            type: "input",
+            message: "Type your song title to search"
+
+        }]).then(function(answer) {
+            input = answers.welcome;
+            logUserInput(input);
+
+            userInput = answer.chooseSong;
+            // console.log(userInput);
+            if (userInput !== "") {
+                getSong(userInput, getSongCallback);
+
+                // Else statment is the user doesn't select anything and hits enter 
+            } else {
+                fs.readFile("random.txt", "utf8", function(err, data) {
+                    split = data.split(',');
+                    userInput = split[1];
+
+                    if (split[0] === "Find Song") {
+                        getSong(userInput, getSongCallback);
+                    } else {
+                        console.log("You Broke It!");
+                    }
+                });
+            }
+
+        });
+    }
+
+    // Handles the input if user selects a Movie
+    else if (answers.welcome === "Find a Movie") {
+        inquirer.prompt([{
+            name: "chooseMovie",
+            type: "input",
+            message: "Type the movie name to search"
+
+        }]).then(function(answer) {
+
+            userInput = answer.chooseMovie;
+            // console.log(userInput);
+            if (userInput !== "") {
+                getMovie(userInput, getMovieCallback);
+
+            // Else statment is the user doesn't select anything and hits enter 
+            } else {
+                fs.readFile("random.txt", "utf8", function(err, data) {
+                    split = data.split(',');
+                    userInput = split[5];
+                    // console.log(split[4])
+                    if (split[4] === "Find Movie") {
+                        getMovie(userInput, getMovieCallback);
+                    } else {
+                        console.log("You Broke It!")
+                    }
+                });
+            }
+        });
+
+    } else {
         console.log("Please enter a valid search request!");
+    }
+});
+
+
+
+// // ======== TWITTER FUNCTIONS=========
+function getTweetsCallback(err, userInput, tweets, resultType) {
+    if (err) {
+        return console.log(err)
+    }
+
+    populateTweets(tweets);
+    logResults(userInput, tweets, resultType);
 }
 
+function getTweets(userInput, callback) {
 
-
-// // ======== Twitter Function to Get Tweets =========
-
-function getTweets() {
-
-    var params = { screen_name: 'MoodMedia_Nigel', count: 10 };
-    client.get('statuses/user_timeline', params, function(error, tweets, response) {
-        if (!error) {
-        	populateTweets(tweets);
-
+    var params = { screen_name: userInput, count: 20 };
+    client.get('statuses/user_timeline', params, function(err, tweets, response) {
+        if (err) {
+            return callback(err)
         }
+        callback(null, userInput, tweets, 'tweets')
     });
+}
+
+function formatTweets(tweets) {
+    var returnTweets = "";
+    for (var i = 0; i < tweets.length; i++) {
+        // var resultNumber = i + 1;
+        returnTweets += "Tweet: " + (i + 1) + "\n" +
+            "--------------------------------------\n" +
+            // Tweet text 
+            "Tweet Text: " + tweets[i]["text"] + "\n" +
+            // Date tweet was created
+            "Date of Tweet: " + tweets[i].created_at + "\n" +
+            "--------------------------------------\n";
+    }
+    return returnTweets;
+
 }
 
 function populateTweets(tweets) {
+    console.log(formatTweets(tweets));
 
-
-    for (var i = 0; i < tweets.length; i++) {
-        var resultNumber = i + 1;
-        console.log("");
-        console.log("Tweet: " + resultNumber);
-        console.log("--------------------------------------");
-        // Tweet text 
-        console.log("Tweet Text: " + tweets[i]["text"]);
-        // Date tweet was created
-        console.log("Date of Tweet: " + tweets[i].created_at);
-        console.log("--------------------------------------");
-
-    }
 }
 
+// =============== SPOTIFY FUNCTIONS AND CALLBACKS =================
+function getSongCallback(err, userInput, spotifyData, resultType) {
+    if (err) {
+        return console.log(err)
+    }
 
-// =============== Spotify require function =================
+    populateSongResults(spotifyData);
+    logResults(userInput, spotifyData, resultType);
+}
 
-
-function getSong(userInput) {
+function getSong(userInput, callback) {
     spotify.search({ type: 'track', query: userInput }, function(err, spotifyData) {
         if (err) {
             console.log('Error occurred: ' + err);
-            return;
+            callback(err);
         } else {
-            populateSongResults(spotifyData);
+            callback(null, userInput, spotifyData, 'song');
+            // populateSongResults(spotifyData);
+            // logResults(userInput, spotifyData);
         }
     });
 }
 
-function populateSongResults(spotifyData) {
+function formatSongResults(spotifyData) {
+    var returnString = "";
 
     for (var i = 0; i < spotifyData.tracks.items.length; i++) {
-        var resultNumber = i + 1;
-        console.log("");
-        console.log("Search Result: " + resultNumber);
-        console.log("--------------------------------------");
-        // Artist Name
-        console.log("Artist Name: " + spotifyData.tracks.items[i].artists[0].name);
-        // Track Name
-        console.log("Track Title: " + spotifyData.tracks.items[i].name);
-        // URL
-        console.log("URL: " + spotifyData.tracks.items[i].external_urls.spotify);
-        // Album names
-        console.log("Album: " + spotifyData.tracks.items[i].album.name);
-        console.log("--------------------------------------");
-
-
+        returnString += ("Song Result: " + (i + 1) + "\n" +
+            "--------------------------------------" + "\n" +
+            // Artist Name
+            "Artist Name: " + spotifyData.tracks.items[i].artists[0].name + "\n" +
+            // Track Name
+            "Track Title: " + spotifyData.tracks.items[i].name + "\n" +
+            // URL
+            "URL: " + spotifyData.tracks.items[i].external_urls.spotify + "\n" +
+            // Album names
+            "Album: " + spotifyData.tracks.items[i].album.name + "\n" +
+            "--------------------------------------" + "\n")
     }
-    // Using a forEach to get the same result as for loop
-    // 	spotifyData.tracks.items.forEach(function(obj, index, array){
-    // 		var resultNumber = this.index + 1;
-    // 		console.log("");
-    // 		console.log("Search Result: " + resultNumber);
-    // 		console.log("--------------------------------------");
-    // 		// Artist Name
-    // 		console.log(obj[index].artists[index].name);
-    // 		// Track Name
-    // 		console.log(obj[index].name);
-    // 		// URL
-    // 		console.log(obj[index].external_urls.spotify);
-    // 		// Album names
-    // 		console.log(obj[index].album.name);
-    // 		console.log("--------------------------------------");
-    // });
+
+    return returnString;
 }
 
+function populateSongResults(spotifyData) {
+    console.log(formatSongResults(spotifyData))
+};
+
+
+
 // ============ END SPOTIFY ====================
+
+
+
+// ======== OMDB FUNCTION ===============
+function getMovieCallback(err, userInput, body, resultType) {
+    if (err) {
+        return console.log(err)
+    }
+
+    populateMovieResults(body);
+    logResults(userInput, body, resultType);
+}
+
+function populateMovieResults(body) {
+    console.log(formatMovieResults(body))
+};
+// Function to pull the movie information 
+function getMovie(userInput, callback) {
+    // Runs a request to the OMDB API with the movie specified by the user
+    request('http://www.omdbapi.com/?t=' + userInput + '&tomatoes=true&y=&plot=short&r=json', function(err, response, body) {
+
+        // If the request is successful (i.e. if the response status code is 200)
+        if (!err && response.statusCode == 200) {
+            callback(null, userInput, body, 'movie');
+
+
+        } else {
+            console.log("Sorry there was a problem, please try again later!")
+            return;
+        }
+    });
+}
+
+function formatMovieResults(body) {
+    var returnMovies = "";
+
+    // for (var i = 0; i < spotifyData.tracks.items.length; i++) {
+    returnMovies += ("Movie Result " + "\n" +
+        "--------------------------------------" + "\n" +
+        "Title: " + JSON.parse(body)["Title"] + "\n" +
+        "Year Movie Released: " + JSON.parse(body)["Released"] + "\n" +
+        "IMDB Rating: " + JSON.parse(body)["imdbRating"] + "\n" +
+        "Country Where Film Was Produced: " + JSON.parse(body)["Country"] + "\n" +
+        "Language of movie: " + JSON.parse(body)["Language"] + "\n" +
+        "Plot: " + JSON.parse(body)["Plot"] + "\n" +
+        "Actors: " + JSON.parse(body)["Actors"] + "\n" +
+        "Rotten Tomatoes Rating: " + JSON.parse(body)["tomatoRating"] + "\n" +
+        "Rotten Tomatoes URL: " + JSON.parse(body)["tomatoURL"] + "\n" +
+        "--------------------------------------\n");
+
+
+    return returnMovies;
+
+}
+
+// ======= LOG FUNCTIONS that add text to the log.txt file ========
+
+// this function will log the results of the query
+function logResults(userInput, results, resultType) {
+    // userData = getSong(userInput);
+    var data;
+    if (resultType === 'song') {
+        data = formatSongResults(results);
+    }
+    if (resultType === 'tweets') {
+        data = formatTweets(results);
+    } else if (resultType === 'movie') {
+        data = formatMovieResults(results);
+    }
+
+    fs.appendFile("log.txt", userInput + "\n" + data + "\n" + "---------", function(err) {
+        // If an error was experienced we say it.
+        if (err) {
+            console.log(err);
+        }
+
+        // If no error is experienced, we'll log the phrase "Content Added" to our node console. 
+        else {
+
+            console.log("Content Added!");
+        }
+
+    });
+}
+
+// This function will just log the first response to the question and the user input 
+function logUserInput(userInput) {
+    // userData = answer.welcome+": ";
+
+    fs.appendFile("log.txt", "----------" + "\n" + userInput + ": ", function(err) {
+        // If an error was experienced we say it.
+        if (err) {
+            console.log(err);
+        }
+
+        // If no error is experienced, we'll log the phrase "Content Added" to our node console. 
+        else {
+
+            console.log("Content Added!");
+        }
+
+    });
+}
+
+
 
 // ======== SORT FUNCTION ================
 // Need to add a sort function to sort the music and tweet data
@@ -152,30 +351,3 @@ function populateSongResults(spotifyData) {
 // 	if(action === "spotify-this-song"){ 
 
 // 	}
-
-// ======== OMDB FUNCTION ===============
-
-// Function to pull the movie information 
-function getMovie(userInput) {
-    // Runs a request to the OMDB API with the movie specified by the user
-    request('http://www.omdbapi.com/?t=' + userInput + '&y=&plot=short&r=json', function(error, response, body) {
-
-        // If the request is successful (i.e. if the response status code is 200)
-        if (!error && response.statusCode == 200) {
-
-            // Parse the body of the site and recover what is needed
-            // (Note: The syntax below for parsing isn't obvious. Just spend a few moments dissecting it). 
-            console.log("");
-            console.log("Search Results");
-            console.log("--------------------------------------");
-            console.log("Title: " + JSON.parse(body)["Title"]);
-            console.log("Year Movie Released: " + JSON.parse(body)["Released"]);
-            console.log("IMDB Rating: " + JSON.parse(body)["imdbRating"]);
-            console.log("Country Where Film Was Produced: " + JSON.parse(body)["Country"]);
-            console.log("Language of movie: " + JSON.parse(body)["Language"]);
-            console.log("Plot: " + JSON.parse(body)["Plot"]);
-            console.log("Actors: " + JSON.parse(body)["Actors"]);
-            console.log("--------------------------------------");
-        }
-    });
-}
